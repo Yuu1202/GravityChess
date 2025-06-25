@@ -72,11 +72,12 @@ Saya ingin dapat bermain bersama teman (**Player vs Player**) serta menikmati ta
 
 ## G. Pembagian Kerja Tim  
 
-- **Lead Programmer**: Bertanggung jawab pada arsitektur kode dan implementasi fitur utama (Gravity Mechanic, Board, Piece)  
-- **UI/UX Designer**: Mendesain dan mengimplementasikan tampilan antarmuka pengguna  
-- **Game Tester**: Menguji seluruh fitur, mencari bug, dan memberikan feedback pada pengembangan  
-- **Dokumentasi**: Membuat dokumentasi penggunaan dan pengembangan aplikasi  
-
+Muhammad Yusuf Qardhawi:
+- Lead Programmer: Bertanggung jawab pada arsitektur kode dan implementasi fitur utama (Gravity Mechanic, Board, Piece).
+- Game Tester: Menguji seluruh fitur, mencari bug, dan memberikan feedback pada pengembangan.
+Fadhilla Dafa Karunia:
+- UI/UX Designer: Mendesain dan mengimplementasikan tampilan antarmuka pengguna.
+- Dokumentasi: Membuat dokumentasi penggunaan dan pengembangan aplikasi.
 ---
 
 ## H. Kompetisi yang akan Diikuti  
