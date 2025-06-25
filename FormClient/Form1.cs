@@ -1,0 +1,132 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using GravityChess;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace FormClient
+{
+    public partial class Form1 : Form
+    {
+        ChessBoard chessBoard = new ChessBoard();
+        GravityChess.Point selectedPiece = new GravityChess.Point();
+        int selectedPlayer = -1;
+
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private void Form_Load(object sender, EventArgs e)
+        {
+            // Update: Use 0-based indices for 8x8 grid
+            // GRAVITY CHESS: Board is rotated 90 degrees to the right (columns become rows)
+            for (int x = 0; x < boardLayoutPanel.ColumnCount; x++)
+            {
+                for (int y = 0; y < boardLayoutPanel.RowCount; y++)
+                {
+                    Button button = new Button();
+                    button.Dock = DockStyle.Fill;
+                    button.Margin = new Padding(0);
+                    button.FlatStyle = FlatStyle.Flat;
+                    button.FlatAppearance.BorderSize = 0;
+                    // Swap x and y for coloring to match rotated board
+                    if ((y + (boardLayoutPanel.ColumnCount - 1 - x)) % 2 == 1) button.BackColor = Color.Green;
+                    else button.BackColor = Color.Gray;
+                    // Place button at (x, y) as before
+                    boardLayoutPanel.Controls.Add(button, x, y);
+                    button.Click += Click_Board;
+                }
+            }
+
+            DrawPieces(chessBoard);
+        }
+
+        private void Click_Board(object s, EventArgs e)
+        {
+            DrawPieces(chessBoard);
+            if (!(s is Button)) return;
+            Button button = (Button)s;
+            button.FlatStyle = FlatStyle.Standard;
+            TableLayoutPanelCellPosition a = boardLayoutPanel.GetPositionFromControl((Control)s);
+
+            // GRAVITY CHESS: Interpret click as (col, row) = (a.Column, a.Row)
+            // But logical board is [col, row] = [a.Column, a.Row] (rotated)
+            int logicX = a.Row; // swap for gravity chess
+            int logicY = boardLayoutPanel.ColumnCount - 1 - a.Column;
+
+            if (!(button.Tag is ChessPiece))
+            {
+                if (selectedPlayer > -1)
+                {
+                    // Move from selectedPiece to clicked cell (gravity handled in ChessBoard)
+                    chessBoard.ActionPiece(selectedPiece.x, selectedPiece.y, logicX, logicY);
+                    selectedPlayer = -1;
+                    DrawPieces(chessBoard);
+                }
+                return;
+            }
+
+            ChessPiece chessPiece = (ChessPiece)button.Tag;
+            Console.WriteLine("({2}, {3}) - {0} from team {1}", chessPiece.GetType(), chessPiece.Player, logicX, logicY);
+
+            if (selectedPlayer > -1 && selectedPlayer != chessPiece.Player)
+            {
+                chessBoard.ActionPiece(selectedPiece.x, selectedPiece.y, logicX, logicY);
+                selectedPlayer = -1;
+                DrawPieces(chessBoard);
+            }
+            else
+            {
+                selectedPlayer = chessPiece.Player;
+                selectedPiece.x = logicX;
+                selectedPiece.y = logicY;
+                foreach (GravityChess.Point point in chessBoard.PieceActions(logicX, logicY))
+                {
+                    // Map logic (point.x, point.y) to UI (col, row)
+                    int uiCol = boardLayoutPanel.ColumnCount - 1 - point.y;
+                    int uiRow = point.x;
+                    Button actionButton = (Button)boardLayoutPanel.GetControlFromPosition(uiCol, uiRow);
+                    actionButton.FlatStyle = FlatStyle.Standard;
+                    Console.WriteLine("~({0}, {1})", point.x, point.y);
+                }
+                Console.WriteLine();
+            }
+        }
+
+        private void DrawPieces(ChessBoard board)
+        {
+            // GRAVITY CHESS: Render board rotated 90 degrees to the right
+            for (int x = 0; x < board.GetLength(0); x++)
+            {
+                for (int y = 0; y < board.GetLength(1); y++)
+                {
+                    // Map logic (x, y) to UI (col, row)
+                    int uiCol = boardLayoutPanel.ColumnCount - 1 - y;
+                    int uiRow = x;
+                    Button button = (Button)boardLayoutPanel.GetControlFromPosition(uiCol, uiRow);
+                    button.FlatStyle = FlatStyle.Flat;
+                    if (board[x, y] != null)
+                    {
+                        ChessPiece chessPiece = board[x, y];
+                        button.Tag = chessPiece;
+                        button.Text = chessPiece.ToString().Replace("GravityChess.", "");
+                        if (chessPiece.Player == 1) button.ForeColor = Color.White;
+                        else button.ForeColor = Color.Black;
+                    }
+                    else
+                    {
+                        button.Text = "";
+                        button.Tag = null;
+                    }
+                    this.coordinates.SetToolTip(button, String.Format("({0}, {1})", x, y));
+                }
+            }
+        }
+    }
+}

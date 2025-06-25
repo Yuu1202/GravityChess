@@ -1,0 +1,115 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Chess
+{
+    // Kelas abstrak dasar untuk semua bidak catur
+    public abstract class ChessPiece
+    {
+        protected const int MAX_DISTANCE = 7; // Jarak maksimum gerakan bidak
+
+        // Field khusus pion
+        protected bool canEnPassantLeft;   // Apakah pion bisa en passant ke kiri
+        protected bool canEnPassantRight;  // Apakah pion bisa en passant ke kanan
+        protected bool canDoubleJump;      // Apakah pion bisa melangkah dua kotak
+
+        // Field lain
+        protected bool canCastle; // Untuk rook dan king, apakah bisa castling
+        protected Point[][] availableMoves; // Array jagged untuk gerakan ([arah][jarak])
+        protected Point[][] availableAttacks; // Array jagged untuk serangan (sama dengan moves kecuali pion)
+        private int player; // Pemilik bidak (0 = putih, 1 = hitam)
+
+        // Properti untuk mendapatkan array gerakan yang tersedia
+        public Point[][] AvailableMoves
+        {
+            get { return availableMoves; }
+        }
+
+        // Properti untuk mendapatkan array serangan yang tersedia
+        public Point[][] AvailableAttacks
+        {
+            get { return availableAttacks; }
+        }
+
+        // Properti untuk mendapatkan atau mengatur pemain bidak
+        public int Player
+        {
+            get { return player; }
+            set { player = value; }
+        }
+
+        // Fungsi abstrak untuk menghitung ulang gerakan bidak
+        public abstract ChessPiece CalculateMoves();
+
+        // Mendapatkan array koordinat gerakan horizontal atau vertikal relatif terhadap pemain
+        // Digunakan oleh: King, Queen, Pawn, Rook
+        public static Point[] GetMovementArray(int distance, Direction direction)
+        {
+            Point[] movement = new Point[distance];
+            int xPosition = 0;
+            int yPosition = 0;
+
+            for (int i = 0; i < distance; i++)
+            {
+                switch (direction)
+                {
+                    case Direction.FORWARD:
+                        yPosition++;
+                        break;
+                    case Direction.BACKWARD:
+                        yPosition--;
+                        break;
+                    case Direction.LEFT:
+                        xPosition++;
+                        break;
+                    case Direction.RIGHT:
+                        xPosition--;
+                        break;
+                    default:
+                        break;
+                }
+                movement[i] = new Point(xPosition, yPosition);
+            }
+            return movement;
+        }
+
+        // Mendapatkan array koordinat gerakan diagonal relatif terhadap pemain
+        // Digunakan oleh: King, Queen, Pawn, Bishop
+        public static Point[] GetDiagnalMovementArray(int distance, DiagnalDirection direction)
+        {
+            Point[] attack = new Point[distance];
+            int xPosition = 0;
+            int yPosition = 0;
+
+            for (int i = 0; i < distance; i++)
+            {
+                switch (direction)
+                {
+                    case DiagnalDirection.FORWARD_LEFT:
+                        xPosition--;
+                        yPosition++;
+                        break;
+                    case DiagnalDirection.FORWARD_RIGHT:
+                        xPosition++;
+                        yPosition++;
+                        break;
+                    case DiagnalDirection.BACKWARD_LEFT:
+                        xPosition--;
+                        yPosition--;
+                        break;
+                    case DiagnalDirection.BACKWARD_RIGHT:
+                        xPosition++;
+                        yPosition--;
+                        break;
+                    default:
+                        break;
+                }
+                attack[i] = new Point(xPosition, yPosition);
+            }
+            return attack;
+        }
+    }
+}

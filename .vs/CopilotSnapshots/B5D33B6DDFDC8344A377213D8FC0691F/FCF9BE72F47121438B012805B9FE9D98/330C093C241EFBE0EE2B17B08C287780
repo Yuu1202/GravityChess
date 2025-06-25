@@ -1,0 +1,46 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Chess
+{
+    // Struktur untuk merepresentasikan titik/koordinat pada papan catur
+    public struct Point
+    {
+        public int x; // Posisi horizontal (kolom)
+        public int y; // Posisi vertikal (baris)
+
+        // Konstruktor untuk membuat titik dengan posisi x dan y tertentu
+        public Point(int x, int y)
+        {
+            this.x = x;
+            this.y = y;
+        }
+
+        // Mengembalikan representasi string dari koordinat, misal: (2, 3)
+        public override string ToString()
+        {
+            return (String.Format("({0}, {1})", x, y));
+        }
+    }
+
+    // Enum untuk arah gerakan horizontal dan vertikal pada papan catur
+    public enum Direction
+    {
+        FORWARD,      // Maju (ke atas papan)
+        BACKWARD,     // Mundur (ke bawah papan)
+        LEFT,         // Kiri
+        RIGHT         // Kanan
+    }
+
+    // Enum untuk arah gerakan diagonal pada papan catur
+    public enum DiagnalDirection
+    {
+        FORWARD_LEFT,     // Maju ke kiri (diagonal atas kiri)
+        FORWARD_RIGHT,    // Maju ke kanan (diagonal atas kanan)
+        BACKWARD_LEFT,    // Mundur ke kiri (diagonal bawah kiri)
+        BACKWARD_RIGHT    // Mundur ke kanan (diagonal bawah kanan)
+    }
+}

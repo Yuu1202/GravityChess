@@ -1,0 +1,355 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Chess
+{
+    public class ChessBoard
+    {
+        private ChessPiece[,] boardArray;
+        private const int COLUMNS = 8;
+        private int ROWS = 8;
+
+        // Konstruktor papan catur, langsung memanggil SetupBoard untuk inisialisasi papan
+        public ChessBoard()
+        {
+            SetupBoard();
+        }
+
+        // Mengambil panjang array papan pada dimensi tertentu (0 = kolom, 1 = baris)
+        public int GetLength(int l)
+        {
+            return boardArray.GetLength(l);
+        }
+
+        // Mengakses bidak catur pada posisi (x, y)
+        public ChessPiece this[int x, int y]
+        {
+            get { return boardArray[x, y]; }
+        }
+
+        // Mengatur posisi awal semua bidak catur pada papan
+        private ChessBoard SetupBoard()
+        {
+            boardArray = new ChessPiece[COLUMNS, ROWS];
+            string[] playerPeices = {
+                "Rook", "Knight", "Bishop", "Queen",
+                "King", "Bishop", "Knight", "Rook",
+                "Pawn", "Pawn", "Pawn", "Pawn",
+                "Pawn", "Pawn", "Pawn", "Pawn" };
+
+            for (int i = 0; i < COLUMNS; i++)
+            {
+                // Bidak pemain 0
+                boardArray[i, 0] = (ChessPiece)Activator.CreateInstance(
+                                                Type.GetType("Chess." + playerPeices[i]));
+                boardArray[i, 1] = (ChessPiece)Activator.CreateInstance(
+                                                Type.GetType("Chess." + playerPeices[i + COLUMNS]));
+                // Bidak pemain 1
+                boardArray[i, ROWS - 1] = (ChessPiece)Activator.CreateInstance(
+                                                Type.GetType("Chess." + playerPeices[i]), new object[] { 1 });
+                boardArray[i, ROWS - 2] = (ChessPiece)Activator.CreateInstance(
+                                                Type.GetType("Chess." + playerPeices[i + COLUMNS]), new object[] { 1 });
+            }
+            return this;
+        }
+
+        // Menghitung aksi yang dapat dilakukan oleh bidak catur pada posisi tertentu
+        public IEnumerable<Point> PieceActions(int x, int y, bool ignoreCheck = false, bool attackActions = true, bool moveActions = true, ChessPiece[,] boardArray = null)
+        {
+            if (boardArray == null)
+            {
+                boardArray = this.boardArray;
+            }
+
+            bool[,] legalActions = new bool[boardArray.GetLength(0), boardArray.GetLength(1)];
+            List<Point> availableActions = new List<Point>();
+            ChessPiece movingPeice = boardArray[x, y];
+
+            // Menambahkan aksi serangan jika diaktifkan
+            if (attackActions)
+            {
+                foreach (Point[] direction in movingPeice.AvailableAttacks)
+                {
+                    foreach (Point attackPoint in direction)
+                    {
+                        Point adjustedPoint = new Point(attackPoint.x + x, attackPoint.y + y);
+                        if (ValidatePoint(adjustedPoint))
+                        {
+                            if (boardArray[adjustedPoint.x, adjustedPoint.y] != null
+                                && boardArray[adjustedPoint.x, adjustedPoint.y].Player ==
+                                movingPeice.Player) break;
+                            if (boardArray[adjustedPoint.x, adjustedPoint.y] != null)
+                            {
+                                AddMove(availableActions, new Point(x, y), adjustedPoint, ignoreCheck);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Menambahkan aksi gerak jika diaktifkan
+            if (moveActions)
+            {
+                foreach (Point[] direction in movingPeice.AvailableMoves)
+                {
+                    foreach (Point movePoint in direction)
+                    {
+                        Point adjustedPoint = new Point(movePoint.x + x, movePoint.y + y);
+                        if (ValidatePoint(adjustedPoint))
+                        {
+                            if (boardArray[adjustedPoint.x, adjustedPoint.y] != null) break;
+                            AddMove(availableActions, new Point(x, y), adjustedPoint, ignoreCheck);
+                        }
+                    }
+                }
+            }
+
+            // Logika untuk castling pada bidak raja
+            if (movingPeice is King && ((King)movingPeice).CanCastle)
+            {
+                int rookX = 0;
+                if (boardArray[rookX, y] is Rook && ((Rook)boardArray[rookX, y]).CanCastle)
+                {
+                    bool missedCondition = false;
+                    foreach (int rangeX in Enumerable.Range(rookX + 1, Math.Abs(rookX - x) - 1))
+                    {
+                        if (boardArray[rangeX, y] != null) missedCondition = true;
+                        // Validasi raja tidak melewati skak belum diimplementasikan
+                    }
+                    // Validasi raja tidak sedang skak belum diimplementasikan
+                    missedCondition = missedCondition || KingInCheck(movingPeice.Player);
+                    if (!missedCondition)
+                        AddMove(availableActions, new Point(x, y), new Point(x - 2, y), ignoreCheck);
+                }
+                rookX = COLUMNS - 1;
+                if (boardArray[rookX, y] is Rook && ((Rook)boardArray[rookX, y]).CanCastle)
+                {
+                    bool missedCondition = false;
+                    foreach (int rangeX in Enumerable.Range(x + 1, Math.Abs(rookX - x) - 1))
+                    {
+                        if (boardArray[rangeX, y] != null) missedCondition = true;
+                        // Validasi raja tidak melewati skak belum diimplementasikan
+                    }
+                    // Validasi raja tidak sedang skak belum diimplementasikan
+                    missedCondition = missedCondition || KingInCheck(movingPeice.Player);
+                    if (!missedCondition)
+                        AddMove(availableActions, new Point(x, y), new Point(x + 2, y), ignoreCheck);
+                }
+            }
+
+            // Logika khusus untuk bidak pion (en passant)
+            if (movingPeice is Pawn)
+            {
+                Pawn pawn = (Pawn)movingPeice;
+                int flipDirection = 1;
+
+                if (pawn.Player == 1) flipDirection = -1;
+                if (pawn.CanEnPassantLeft)
+                {
+                    Point attackPoint;
+                    attackPoint = ChessPiece.GetDiagnalMovementArray(1, DiagnalDirection.FORWARD_LEFT)[0];
+                    attackPoint.y *= flipDirection;
+                    attackPoint.y += y;
+                    attackPoint.x += x;
+                    if (ValidatePoint(attackPoint))
+                    {
+                        AddMove(availableActions, new Point(x, y), attackPoint, ignoreCheck);
+                    }
+                }
+
+                if (pawn.CanEnPassantRight)
+                {
+                    Point attackPoint;
+                    attackPoint = ChessPiece.GetDiagnalMovementArray(1, DiagnalDirection.FORWARD_RIGHT)[0];
+                    attackPoint.y *= flipDirection;
+                    attackPoint.y += y;
+                    attackPoint.x += x;
+                    if (ValidatePoint(attackPoint))
+                    {
+                        AddMove(availableActions, new Point(x, y), attackPoint, ignoreCheck);
+                    }
+                }
+            }
+
+            return availableActions;
+        }
+
+        // Menambahkan aksi ke daftar jika tidak menyebabkan raja sendiri skak
+        private void AddMove(List<Point> availableActions, Point fromPoint, Point toPoint, bool ignoreCheck = false)
+        {
+            bool kingInCheck = false;
+
+            if (!ignoreCheck)
+            {
+                ChessPiece movingPiece = boardArray[fromPoint.x, fromPoint.y];
+                ChessPiece[,] boardArrayBackup = (ChessPiece[,])boardArray.Clone();
+                ActionPiece(fromPoint, toPoint, true);
+                kingInCheck = KingInCheck(movingPiece.Player);
+                boardArray = boardArrayBackup;
+            }
+
+            if (ignoreCheck || !kingInCheck) availableActions.Add(toPoint);
+        }
+
+        // Mengecek apakah raja pemain dalam keadaan skak
+        public bool KingInCheck(int player)
+        {
+            for (int x = 0; x < COLUMNS; x++)
+            {
+                for (int y = 0; y < ROWS; y++)
+                {
+                    ChessPiece chessPiece = boardArray[x, y];
+                    if (chessPiece != null
+                        && chessPiece.Player == player
+                        && chessPiece is King)
+                    {
+                        if (CheckSquareVulnerable(x, y, player))
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            throw new Exception("Raja tidak ditemukan!");
+        }
+
+        // Overload PieceActions dengan parameter Point
+        public IEnumerable<Point> PieceActions(Point position, bool ignoreCheck = false, bool attackActions = true, bool moveActions = true, ChessPiece[,] boardArray = null)
+        {
+            return PieceActions(position.x, position.y, ignoreCheck, attackActions, moveActions, boardArray);
+        }
+
+        // Memindahkan bidak dari satu posisi ke posisi lain (koordinat integer)
+        public bool ActionPiece(int fromX, int fromY, int toX, int toY)
+        {
+            return ActionPiece(new Point(fromX, fromY), new Point(toX, toY));
+        }
+
+        // Memindahkan bidak dari satu posisi ke posisi lain (Point)
+        public bool ActionPiece(Point from, Point to, bool bypassValidaiton = false)
+        {
+            if (bypassValidaiton || PieceActions(from).Contains(to))
+            {
+                ChessPiece movingPeice = boardArray[from.x, from.y];
+                if (movingPeice is Pawn)
+                {
+                    Pawn pawn = (Pawn)movingPeice;
+                    // Jika pion melakukan langkah dua kotak, cek en passant
+                    if (Math.Abs(from.y - to.y) == 2)
+                    {
+                        int adjasentX = to.x - 1;
+                        if (adjasentX > -1
+                            && boardArray[adjasentX, to.y] != null
+                            && boardArray[adjasentX, to.y].Player != movingPeice.Player
+                            && boardArray[adjasentX, to.y] is Pawn)
+                        {
+                            if (!bypassValidaiton)
+                                ((Pawn)boardArray[adjasentX, to.y]).CanEnPassantRight = true;
+                        }
+                        adjasentX += 2;
+                        if (adjasentX < COLUMNS
+                            && boardArray[adjasentX, to.y] != null
+                            && boardArray[adjasentX, to.y].Player != movingPeice.Player
+                            && boardArray[adjasentX, to.y] is Pawn)
+                        {
+                            if (!bypassValidaiton)
+                                ((Pawn)boardArray[adjasentX, to.y]).CanEnPassantLeft = true;
+                        }
+                    }
+                    // Jika pion bergerak menyamping ke kotak kosong, itu adalah en passant
+                    if (from.x != to.x && boardArray[to.x, to.y] == null)
+                    {
+                        boardArray[to.x, from.y] = null;
+                    }
+
+                    if (!bypassValidaiton) // Setelah bergerak, pion tidak bisa double jump lagi
+                        pawn.CanDoubleJump = false;
+                }
+                if (movingPeice is CastlePiece)
+                {
+                    CastlePiece rookOrKing = (CastlePiece)movingPeice;
+                    if (!bypassValidaiton) // Setelah bergerak, tidak bisa castling lagi
+                        rookOrKing.CanCastle = false;
+                }
+                if (movingPeice is King)
+                {
+                    King king = (King)movingPeice;
+                    if (from.x - to.x == 2)
+                    {   // Pindahkan rook untuk castling sisi queen
+                        boardArray[to.x + 1, from.y] = boardArray[0, from.y];
+                        boardArray[0, from.y] = null;
+                    }
+                    if (from.x - to.x == -2)
+                    {   // Pindahkan rook untuk castling sisi king
+                        boardArray[to.x - 1, from.y] = boardArray[COLUMNS - 1, from.y];
+                        boardArray[COLUMNS - 1, from.y] = null;
+                    }
+                }
+                movingPeice.CalculateMoves();
+                boardArray[from.x, from.y] = null;
+                boardArray[to.x, to.y] = movingPeice;
+                return true;
+            }
+            return false;
+        }
+
+        // Mengecek apakah suatu kotak rentan terhadap serangan lawan
+        public bool CheckSquareVulnerable(int squareX, int squareY, int player, ChessPiece[,] boardArray = null)
+        {
+            if (boardArray == null)
+            {
+                boardArray = this.boardArray;
+            }
+
+            for (int x = 0; x < boardArray.GetLength(0); x++)
+            {
+                for (int y = 0; y < boardArray.GetLength(1); y++)
+                {
+                    if (boardArray[x, y] != null && boardArray[x, y].Player != player)
+                    {
+                        foreach (Point point in PieceActions(x, y, true, true, false, boardArray))
+                        {
+                            if (point.x == squareX && point.y == squareY)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Validasi nilai dalam rentang tertentu
+        private bool ValidateRange(int value, int high, int low = -1)
+        {
+            return value > low && value < high;
+        }
+
+        // Validasi koordinat X pada papan
+        public bool ValidateX(int value)
+        {
+            return ValidateRange(value, boardArray.GetLength(0));
+        }
+
+        // Validasi koordinat Y pada papan
+        public bool ValidateY(int value)
+        {
+            return ValidateRange(value, boardArray.GetLength(1));
+        }
+
+        // Validasi objek Point pada papan
+        public bool ValidatePoint(Point point)
+        {
+            return ValidateX(point.x) && ValidateY(point.y);
+        }
+    }
+}
